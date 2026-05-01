@@ -9,20 +9,12 @@ const { rankServices } = require("../utils/rankServices");
 const router = express.Router();
 
 const SUPPORTED_TYPES = new Set([
-  "all",
-  "hospital",
-  "ambulance",
-  "police",
-  "towing",
-  "mechanic",
-  "puncture",
-  "fuel",
+  "all", "hospital", "ambulance", "police",
+  "towing", "mechanic", "puncture", "fuel",
 ]);
 
 function normalizePhone(phone) {
-  return String(phone || "")
-    .replace(/\s+/g, "")
-    .toLowerCase();
+  return String(phone || "").replace(/\s+/g, "").toLowerCase();
 }
 
 router.get("/nearby", async (req, res) => {
@@ -40,32 +32,16 @@ router.get("/nearby", async (req, res) => {
   const radiusKm = Number.isFinite(radius) && radius > 0 ? radius : 10;
 
   if (!SUPPORTED_TYPES.has(type)) {
-    return res.status(400).json({
-      error:
-        "Invalid type. Use all, hospital, ambulance, police, towing, mechanic, puncture, or fuel.",
-    });
+    return res.status(400).json({ error: "Invalid type." });
   }
 
+  // --- OSM fetch ---
   let osmResults = [];
-  let dbNearby = [];
-  let osmQueryFailed = false;
-  let dbQueryFailed = false;
-
   try {
     if (type === "all") {
-      const types = [
-        "hospital",
-        "ambulance",
-        "police",
-        "towing",
-        "mechanic",
-        "puncture",
-        "fuel",
-      ];
+      const types = ["hospital", "ambulance", "police", "towing", "mechanic", "puncture", "fuel"];
       const responses = await Promise.all(
-        types.map((serviceType) =>
-          fetchFromOSM(userLat, userLng, serviceType, radiusKm)
-        )
+        types.map((t) => fetchFromOSM(userLat, userLng, t, radiusKm))
       );
       osmResults = responses.flat().map((item) => ({ ...item, source: "osm" }));
     } else {
@@ -73,89 +49,74 @@ router.get("/nearby", async (req, res) => {
       osmResults = response.map((item) => ({ ...item, source: "osm" }));
     }
   } catch (_error) {
-    osmQueryFailed = true;
     osmResults = [];
   }
 
+  // --- DB fetch — NO radius filter, get all, sort by distance after ---
+  let dbRows = [];
   try {
-    const dbQuery =
-      type === "all"
-        ? "SELECT * FROM emergency_contacts WHERE available = 1"
-        : "SELECT * FROM emergency_contacts WHERE available = 1 AND type = ?";
-
-    const dbRows =
-      type === "all"
-        ? db.prepare(dbQuery).all()
-        : db.prepare(dbQuery).all(type);
-
-    dbNearby = dbRows
-      .filter((row) => haversine(userLat, userLng, row.lat, row.lng) <= radiusKm)
-      .map((row) => ({
-        ...row,
-        source: "db",
-      }));
+    const dbQuery = type === "all"
+      ? "SELECT * FROM emergency_contacts WHERE available = 1"
+      : "SELECT * FROM emergency_contacts WHERE available = 1 AND type = ?";
+    dbRows = type === "all"
+      ? db.prepare(dbQuery).all()
+      : db.prepare(dbQuery).all(type);
   } catch (_error) {
-    dbQueryFailed = true;
-    dbNearby = [];
+    dbRows = [];
   }
 
-  if ((osmQueryFailed || osmResults.length === 0) && dbQueryFailed) {
-    const offlineFilePath = path.resolve(__dirname, "../data/offlineContacts.json");
-    const offlineContacts = JSON.parse(fs.readFileSync(offlineFilePath, "utf8"));
-    const offlineNearby = offlineContacts
+  // Attach distance to every DB row
+  const dbWithDistance = dbRows.map((row) => ({
+    ...row,
+    source: "db",
+    distance: Math.round(haversine(userLat, userLng, row.lat, row.lng) * 100) / 100,
+  }));
+
+  // Prefer contacts within radius, but fall back to ALL sorted by distance
+  const dbWithinRadius = dbWithDistance.filter((r) => r.distance <= radiusKm);
+  const dbNearby = dbWithinRadius.length >= 3
+    ? dbWithinRadius
+    : dbWithDistance.sort((a, b) => a.distance - b.distance).slice(0, 20);
+
+  // --- Merge OSM + DB ---
+  const shouldSupplement = osmResults.length < 3;
+  const mergedInput = shouldSupplement
+    ? [...osmResults, ...dbNearby]
+    : osmResults;
+
+  // Deduplicate by phone
+  const dedupedMap = new Map();
+  for (const item of mergedInput) {
+    const key = normalizePhone(item.phone) ||
+      `${item.type}:${item.name}:${item.lat}:${item.lng}`;
+    if (!dedupedMap.has(key)) {
+      dedupedMap.set(key, item);
+    }
+  }
+
+  // If still nothing, use offline fallback WITHOUT radius filter
+  if (dedupedMap.size === 0) {
+    const offlinePath = path.resolve(__dirname, "../data/offlineContacts.json");
+    const offline = JSON.parse(fs.readFileSync(offlinePath, "utf8"));
+    const filtered = offline
       .filter((item) => type === "all" || item.type === type)
-      .filter((item) => haversine(userLat, userLng, item.lat, item.lng) <= radiusKm)
       .map((item) => ({
         ...item,
         source: "offline",
-      }));
-
-    const rankedOffline = rankServices(offlineNearby, userLat, userLng).slice(0, 20);
-    return res.json(
-      rankedOffline.map((item) => ({
-        id: item.id ?? null,
-        name: item.name,
-        type: item.type,
-        phone: item.phone,
-        lat: item.lat,
-        lng: item.lng,
-        address: item.address || "",
-        city: item.city || "",
-        country: item.country || "",
-        distance: item.distance,
-        score: item.score,
-        verified: Number(item.verified) === 1 ? 1 : 0,
-        available: Number(item.available) === 1 ? 1 : 0,
-        source: "offline",
+        distance: Math.round(haversine(userLat, userLng, item.lat, item.lng) * 100) / 100,
       }))
-    );
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 20);
+
+    return res.json(filtered.map(formatResult));
   }
 
-  const shouldSupplement = osmResults.length < 3;
-  const mergedInput = shouldSupplement ? [...osmResults, ...dbNearby] : osmResults;
+  const ranked = rankServices(Array.from(dedupedMap.values()), userLat, userLng);
+  return res.json(ranked.slice(0, 20).map(formatResult));
+});
 
-  const dedupedMap = new Map();
-  for (const item of mergedInput) {
-    const key = normalizePhone(item.phone) || `${item.type}:${item.name}:${item.lat}:${item.lng}`;
-    const existing = dedupedMap.get(key);
-
-    if (!existing) {
-      dedupedMap.set(key, item);
-      continue;
-    }
-
-    if (existing.source === "osm" && item.source === "db") {
-      dedupedMap.set(key, item);
-    }
-  }
-
-  const ranked = rankServices(
-    Array.from(dedupedMap.values()),
-    userLat,
-    userLng
-  );
-
-  const result = ranked.slice(0, 20).map((item) => ({
+function formatResult(item) {
+  return {
     id: item.id ?? null,
     name: item.name,
     type: item.type,
@@ -165,14 +126,12 @@ router.get("/nearby", async (req, res) => {
     address: item.address || "",
     city: item.city || "",
     country: item.country || "",
-    distance: item.distance,
-    score: item.score,
+    distance: item.distance ?? 0,
+    score: item.score ?? 0,
     verified: Number(item.verified) === 1 ? 1 : 0,
     available: Number(item.available) === 1 ? 1 : 0,
     source: item.source,
-  }));
-
-  return res.json(result);
-});
+  };
+}
 
 module.exports = router;
