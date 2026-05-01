@@ -12,7 +12,23 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-app.use(cors({ origin: CLIENT_URL }));
+app.use(cors({
+  origin: function (origin, callback) {
+    const allowed = [
+      process.env.CLIENT_URL,
+      "http://localhost:5173",
+      /\.vercel\.app$/,
+      /\.onrender\.com$/,
+    ];
+    if (!origin) return callback(null, true);
+    const isAllowed = allowed.some((pattern) =>
+      pattern instanceof RegExp ? pattern.test(origin) : pattern === origin
+    );
+    if (isAllowed) return callback(null, true);
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 app.get("/api/health", (req, res) => {
