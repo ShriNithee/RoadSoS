@@ -30,7 +30,22 @@ const contacts = [
   { name: "Royal Thai Police HQ", type: "police", phone: "+66-2-252-8111", lat: 13.7447, lng: 100.5419, address: "Rama I Rd", city: "Bangkok", country: "Thailand" },
   { name: "Bangkok EMS Center", type: "ambulance", phone: "1669", lat: 13.7563, lng: 100.5018, address: "Din Daeng", city: "Bangkok", country: "Thailand" },
   { name: "Rama IX Tow Team", type: "towing", phone: "+66-81-234-5566", lat: 13.7584, lng: 100.5702, address: "Rama IX Rd", city: "Bangkok", country: "Thailand" },
-  { name: "Sukhumvit Roadside Mechanic", type: "mechanic", phone: "+66-86-778-9900", lat: 13.7306, lng: 100.5697, address: "Sukhumvit 71", city: "Bangkok", country: "Thailand" }
+  { name: "Sukhumvit Roadside Mechanic", type: "mechanic", phone: "+66-86-778-9900", lat: 13.7306, lng: 100.5697, address: "Sukhumvit 71", city: "Bangkok", country: "Thailand" },
+  { name: "Ganga Hospital Coimbatore", type: "hospital", phone: "+91-422-2485-000", lat: 11.0168, lng: 76.9558, address: "Mettupalayam Rd", city: "Coimbatore", country: "India" },
+{ name: "Coimbatore Medical College Hospital", type: "hospital", phone: "+91-422-2301-393", lat: 11.0238, lng: 76.9629, address: "Trichy Rd", city: "Coimbatore", country: "India" },
+{ name: "PSG Hospital Coimbatore", type: "hospital", phone: "+91-422-4345-000", lat: 11.0270, lng: 76.9850, address: "Peelamedu", city: "Coimbatore", country: "India" },
+{ name: "Coimbatore City Police Control", type: "police", phone: "+91-422-2390-100", lat: 11.0168, lng: 76.9558, address: "Avanashi Rd", city: "Coimbatore", country: "India" },
+{ name: "Singanallur Police Station", type: "police", phone: "+91-422-2572-100", lat: 11.0021, lng: 77.0231, address: "Singanallur", city: "Coimbatore", country: "India" },
+{ name: "GVK EMRI Ambulance Coimbatore", type: "ambulance", phone: "108", lat: 11.0300, lng: 76.9700, address: "Gandhipuram", city: "Coimbatore", country: "India" },
+{ name: "Coimbatore Ambulance Network", type: "ambulance", phone: "+91-422-2220-000", lat: 11.0168, lng: 76.9748, address: "Race Course Rd", city: "Coimbatore", country: "India" },
+{ name: "RS Puram Towing Service", type: "towing", phone: "+91-98421-11234", lat: 11.0050, lng: 76.9612, address: "RS Puram", city: "Coimbatore", country: "India" },
+{ name: "Peelamedu Vehicle Recovery", type: "towing", phone: "+91-97890-22345", lat: 11.0270, lng: 77.0050, address: "Avinashi Rd", city: "Coimbatore", country: "India" },
+{ name: "Gandhipuram Puncture Shop", type: "puncture", phone: "+91-97890-44321", lat: 11.0168, lng: 76.9748, address: "Gandhipuram Bus Stand", city: "Coimbatore", country: "India" },
+{ name: "Ukkadam Tyre Repair", type: "puncture", phone: "+91-98430-33456", lat: 10.9920, lng: 76.9612, address: "Ukkadam", city: "Coimbatore", country: "India" },
+{ name: "BPCL Fuel Station Peelamedu", type: "fuel", phone: "+91-422-2570-001", lat: 11.0270, lng: 77.0050, address: "Avinashi Rd", city: "Coimbatore", country: "India" },
+{ name: "Indian Oil Gandhipuram", type: "fuel", phone: "+91-422-2234-002", lat: 11.0200, lng: 76.9700, address: "100 Feet Rd", city: "Coimbatore", country: "India" },
+{ name: "Sree Auto Works Coimbatore", type: "mechanic", phone: "+91-98430-55678", lat: 11.0100, lng: 76.9800, address: "Sowripalayam Rd", city: "Coimbatore", country: "India" },
+{ name: "Royal Auto Service Peelamedu", type: "mechanic", phone: "+91-97899-77654", lat: 11.0250, lng: 77.0100, address: "Peelamedu", city: "Coimbatore", country: "India" }
 ];
 
 // Exported function — called by database.js on startup
