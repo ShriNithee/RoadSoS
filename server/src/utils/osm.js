@@ -21,33 +21,25 @@ function extractLatLng(element) {
   if (typeof element.lat === "number" && typeof element.lon === "number") {
     return { lat: element.lat, lng: element.lon };
   }
-
   if (element.center) {
     return { lat: element.center.lat, lng: element.center.lon };
   }
-
   return null;
 }
 
-function looksLikeAmbulance(name = "") {
-  const lower = name.toLowerCase();
-  return (
-    lower.includes("ambulance") ||
-    lower.includes("ems") ||
-    lower.includes("emergency")
-  );
-}
-
-async function fetchFromOSM(lat, lng, type, radiusKm = 5) {
+// Increased default radius from 5km to 25km for much better coverage
+async function fetchFromOSM(lat, lng, type, radiusKm = 25) {
   try {
     const config = OSM_TYPE_CONFIG[type];
     if (!config) {
       return [];
     }
 
-    const radiusMeters = Math.max(100, Math.round(Number(radiusKm) * 1000));
+    // Cap at 50km so Overpass API doesn't time out
+    const radiusMeters = Math.max(100, Math.min(50000, Math.round(Number(radiusKm) * 1000)));
+
     const query = `
-[out:json][timeout:25];
+[out:json][timeout:30];
 (
   node["${config.key}"="${config.value}"](around:${radiusMeters},${lat},${lng});
   way["${config.key}"="${config.value}"](around:${radiusMeters},${lat},${lng});
@@ -67,6 +59,7 @@ out center tags;
     }
 
     const data = await response.json();
+
     if (!data?.elements?.length) {
       return [];
     }
@@ -80,14 +73,13 @@ out center tags;
         }
 
         const name = tags.name || "Unnamed Service";
-        if (type === "ambulance" && !looksLikeAmbulance(name)) {
-          return null;
-        }
+
+        // Removed ambulance filter — keep all results for maximum coverage
 
         return {
           name,
           type,
-          phone: tags.phone || tags["contact:phone"] || "N/A",
+          phone: tags.phone || tags["contact:phone"] || tags["contact:mobile"] || "N/A",
           lat: coords.lat,
           lng: coords.lng,
           address: buildAddress(tags),
